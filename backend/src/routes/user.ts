@@ -15,13 +15,13 @@ app.post("/signup", async (c) => {
 
     try {
         const body = await c.req.json()
+        // const hashedPassword  = await crypto.subtle.encrypt()
         const user = await prisma.user.create({
             data: {
                 email: body.email,
                 password: body.password,
             }
         })
-
         return c.text("jwt token")
     } catch (e) {
         return c.status(403)
@@ -29,8 +29,22 @@ app.post("/signup", async (c) => {
 
 })
 
-app.post("/signin", (c) => {
-    return c.text("Sign in route")
+app.post("/signin", async (c) => {
+    const prisma = new PrismaClient({
+        datasourceUrl: c.env.DATABASE_URL,
+    }).$extends(withAccelerate())
+
+    try {
+        const body = await c.req.json()
+        const user = await prisma.findUnique({
+            where: {
+                email: body.email,
+            }
+        })
+        return c.text("Sign in route")
+    } catch (e) {
+        return c.text(String(e))
+    }
 })
 
 export default app
