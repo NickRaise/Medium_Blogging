@@ -15,20 +15,19 @@ app.post("/signup", async (c) => {
     const prisma = new PrismaClient({
         datasourceUrl: c.env.DATABASE_URL,
     }).$extends(withAccelerate())
-    console.log("signup route hit")
+
     try {
-        console.log("Try block reached")
         const body = await c.req.json()
-        console.log("body parshed")
-        console.log("hashed password generating")
         const hashedPassword = await hashPassword(body.password)
-        const user = await prisma.user.create({
+        const user  = await prisma.user.create({
             data: {
                 email: body.email,
                 password: hashedPassword,
             }
         })
+
         const token = await sign({ id: user.id }, c.env.JWT_SECRET)
+        c.status(201)
         return c.json({ jwt: token })
     } catch (e) {
         console.log(e)
@@ -51,17 +50,17 @@ app.post("/signin", async (c) => {
             }
         })
 
-        if (user) {
-            const correctPassword: Boolean = await verifyPassword(user.password, body.password)
-            if (correctPassword) {
-                const token = await sign({ id: user.id }, c.env.JWT_SECRET)
-                return c.json({ jwt: token })
-            }
+        if (user && await verifyPassword(user.password, body.password)) {
+            const token = await sign({ id: user.id }, c.env.JWT_SECRET)
+            c.status(201)
+            return c.json({ jwt: token })
         }
+
         c.status(403)
         return c.json({ "error": "Invalid Credentials!" })
     } catch (e) {
-        return c.text(String(e))
+        console.log(e)
+        return c.json({"message": "Some error occurred!"})
     }
 })
 
