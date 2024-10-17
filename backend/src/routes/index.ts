@@ -9,6 +9,6 @@ const app = new Hono<{
 }>();
 
 app.route("/user", userRoutes)
-app.route("/blog", blogRoutes)
+app.route("/blog/", blogRoutes)
 
 export default app
