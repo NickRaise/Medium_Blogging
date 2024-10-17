@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import mainRoutes from './routes/index'
+import { hashPassword, verifyPassword } from './utils/hashing'
 
 const app = new Hono<{
   Bindings: {
@@ -7,8 +8,10 @@ const app = new Hono<{
   }
 }>();
 
-app.get("/", (c) => {
-  return c.text("Hello World Hono!");
+app.get("/", async (c) => {
+  console.log("Server is hitted")
+  const hashedPassword = await hashPassword("this is my password")
+  return c.text(hashedPassword);
 });
 
 app.route("/api/v1", mainRoutes)
