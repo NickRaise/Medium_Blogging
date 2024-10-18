@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { PrismaClient } from '@prisma/client/edge'
 import { withAccelerate } from '@prisma/extension-accelerate'
 import { verify } from 'hono/jwt'
+import { createBlog, updateBlog  } from '../utils/zodValidation'
 
 const app = new Hono<{
     Bindings: {
@@ -15,8 +16,9 @@ const app = new Hono<{
 
 app.use("/*", async (c, next) => {
     try {
-        const jwtToken = c.req.header("Authorization") || ""
-        if (jwtToken) {
+        const token = c.req.header("Authorization") || ""
+        if (token && token.startsWith("Bearer ")) {
+            const jwtToken = token.split(" ")[1]
             const decode = await verify(jwtToken, c.env.JWT_SECRET)
             const userId = (decode as { id: string }).id;
             c.set('userId', userId)
@@ -37,17 +39,22 @@ app.post("/", async (c) => {
     try {
         const userId = c.get("userId")
         const body = await c.req.json()
+        const { success } = createBlog.safeParse(body)
+        if (!success) {
+            c.status(400)
+            return c.json({"message": "Invalid inputs!"})
+        }
+        console.log("creating post...")
         const newPost = await prisma.post.create({
             data: {
-                title: body.title,
-                content: body.content,
-                published: body.published,
+                ...body,
                 authorId: userId,
             }
         })
         console.log(newPost)
         return c.json({ id: newPost.id })
     } catch (err) {
+        console.log(err)
         return c.json({ "message": "Some error occurred, Please try again!" })
     }
 })
@@ -60,6 +67,12 @@ app.put("/", async (c) => {
     try {
         const body = await c.req.json()
         const userId = c.get("userId")
+        const { success } = updateBlog.safeParse(body)
+        if (!success) {
+            c.status(400)
+            return c.json({"message": "Invalid inputs!"})
+        }
+        console.log("updating post...")
         const updatedPost = await prisma.post.update({
             where: {
                 id: body.postId,
@@ -70,26 +83,28 @@ app.put("/", async (c) => {
                 content: body.content
             }
         })
+        console.log(updatedPost)
         return c.json({ id: updatedPost.id })
     } catch (error) {
+        console.log(error)
         return c.json({ "message": "Some error occurred, Please try again!" })
     }
 })
 
-app.get("/bulk", (c) => {
+app.get("/bulk", async (c) => {
     const prisma = new PrismaClient({
         datasourceUrl: c.env.DATABASE_URL,
     }).$extends(withAccelerate())
 
     try {
         // const allPosts = prisma.post.find({})
-        const allPosts = prisma.post.findMany({})
+        const allPosts = await prisma.post.findMany({})
+        console.log(allPosts, "Here are the posts")
         c.status(200)
         return c.json({ posts: allPosts })
     } catch (error) {
         return c.json({ "message": "Some error occurred, Please try again!" })
     }
-    return c.text("Blog bulk get route")
 })
 
 app.get("/:id", async (c) => {
@@ -98,10 +113,11 @@ app.get("/:id", async (c) => {
     }).$extends(withAccelerate())
 
     try {
-        const body = await c.req.json()
+        const postId = c.req.param("id")
+        console.log(postId)
         const post = await prisma.post.findUnique({
             where: {
-                id: body.postId
+                id: postId
             }
         })
         if (post) {
@@ -109,6 +125,7 @@ app.get("/:id", async (c) => {
         }
         return c.json({ "message": "The post may have been deleted or moved somewhere else!" })
     } catch (error) {
+        // console.log(error)
         return c.json({ "message": "Some error occurred, Please try again!" })
     }
 })
