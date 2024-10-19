@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from 'hono/cors'
 import mainRoutes from './routes/index'
 import { hashPassword, verifyPassword } from './utils/hashing'
 
@@ -7,6 +8,8 @@ const app = new Hono<{
     DATABASE_URL: string
   }
 }>();
+
+app.use('/api/*', cors())
 
 app.get("/", async (c) => {
   console.log("Server is hitted")
