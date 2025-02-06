@@ -18,12 +18,15 @@ export const Auth = ({ page }: AuthUser) => {
         password: ""
     })
     const [errorMsg, setErrorMsg] = useState<string>("")
+    const [loading, setLoading] = useState(false)
 
     const sendUserDetails = async () => {
         console.log("sending req")
         setErrorMsg("")
         try {
+            setLoading(true)
             const response = await axios.post(`${BACKEND_URL}/api/v1/user/${page === "signup" ? "signup" : "signin"}`, userData)
+            setLoading(false)
             console.log(response)
             const token = response.data.jwt
             localStorage.setItem("token", `Bearer ${token}`)
@@ -72,7 +75,7 @@ export const Auth = ({ page }: AuthUser) => {
                     <p className="text-red-600 text-sm font-semibold">
                         {errorMsg}
                     </p>}
-                <Button onClick={sendUserDetails} text={page == "signup" ? "Signup" : "Login"} />
+                <Button loading={loading} onClick={sendUserDetails} text={page == "signup" ? "Signup" : "Login"} />
             </div>
         </div>
     )

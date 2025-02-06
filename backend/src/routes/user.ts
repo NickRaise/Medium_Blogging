@@ -21,6 +21,8 @@ app.post("/signup", async (c) => {
     try {
         const body = await c.req.json()
         const { success } = signupInput.safeParse(body)
+        console.log("THis is h=the body ", body)
+        console.log("THis is h=the name ", body.name)
         if (success) {
             const hashedPassword = await hashPassword(body.password)
             const user  = await prisma.user.create({

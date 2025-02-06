@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { PrismaClient } from '@prisma/client/edge'
 import { withAccelerate } from '@prisma/extension-accelerate'
 import { verify } from 'hono/jwt'
-import { createBlog, updateBlog  } from '../utils/zodValidation'
+import { createBlog, updateBlog } from '../utils/zodValidation'
 
 const app = new Hono<{
     Bindings: {
@@ -25,9 +25,11 @@ app.use("/*", async (c, next) => {
             console.log("middleware reached")
             await next()
         }
-    } catch (e) {
         c.status(403)
         return c.json({ "message": "Please signin again!" })
+    } catch (e) {
+        c.status(403)
+        return c.json({ "message": "Please try again!" })
     }
 })
 
@@ -42,7 +44,7 @@ app.post("/", async (c) => {
         const { success } = createBlog.safeParse(body)
         if (!success) {
             c.status(400)
-            return c.json({"message": "Invalid inputs!"})
+            return c.json({ "message": "Invalid inputs!" })
         }
         console.log("creating post...")
         const newPost = await prisma.post.create({
@@ -70,7 +72,7 @@ app.put("/", async (c) => {
         const { success } = updateBlog.safeParse(body)
         if (!success) {
             c.status(400)
-            return c.json({"message": "Invalid inputs!"})
+            return c.json({ "message": "Invalid inputs!" })
         }
         console.log("updating post...")
         const updatedPost = await prisma.post.update({
@@ -97,12 +99,31 @@ app.get("/bulk", async (c) => {
     }).$extends(withAccelerate())
 
     try {
-        // const allPosts = prisma.post.find({})
-        const allPosts = await prisma.post.findMany({})
-        console.log(allPosts, "Here are the posts")
-        c.status(200)
-        return c.json({ posts: allPosts })
+        const allPosts = await prisma.post.findMany({
+            select: {
+                id: true,
+                title: true,
+                content: true,
+                author: {
+                    select: {
+                        name: true
+                    }
+                }
+            }
+        })
+
+        // Process posts to limit content to the first 250 characters
+        const processedPosts = allPosts.map(post => ({
+            ...post,
+            content: post.content.length > 250 ? post.content.substring(0, 250) + '...' : post.content
+        }));
+
+        c.status(200);
+        return c.json({
+            posts: processedPosts,
+        });
     } catch (error) {
+        console.log(error)
         return c.json({ "message": "Some error occurred, Please try again!" })
     }
 })
@@ -118,6 +139,16 @@ app.get("/:id", async (c) => {
         const post = await prisma.post.findUnique({
             where: {
                 id: postId
+            },
+            select: {
+                id: true,
+                title: true,
+                content: true,
+                author: {
+                    select: {
+                        name: true
+                    }
+                }
             }
         })
         if (post) {
